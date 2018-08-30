@@ -1,0 +1,1755 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<con:testSuite id="de4648b1-3f9d-44bf-bbd2-e72b9757255c" name="Framework" xmlns:con="http://eviware.com/soapui/config"><con:settings/><con:savedRecentRuns>1</con:savedRecentRuns><con:runType>SEQUENTIAL</con:runType><con:testCase id="4f6ece89-41a5-4ece-9638-95497f2bb3d4" discardOkResults="true" failOnError="true" failTestCaseOnErrors="true" keepSession="false" name="Business" searchProperties="true" timeout="0" maxResults="0"><con:settings/><con:savedRecentRuns>1</con:savedRecentRuns><con:testStep type="groovy" name="EnrichmentPanel" id="f40a9602-33d9-4968-bbe8-392b31281b06"><con:settings/><con:config><script>class enrichmentPanel
+{
+
+    def log
+    def context
+    def testRunner
+    def err
+    def count
+    enrichmentPanel(def log1,def context1,def testRunner1)
+    {
+        log=log1
+        context=context1
+        testRunner=testRunner1
+        err=context.error
+        count = 0
+    }
+
+
+
+	// Description of the function
+/* 
+*/
+	def ValidateEnrichmentPanel(def hhRequestLabel, def enrichmentPanelLabel, def fulfiller, ArrayList expectedEnrichmentsList, ArrayList expectedExecutionValues) 
+	{
+		log.info " *** Inside ValidateEnrichmentPanel function ****** "
+	    try 
+	    {
+	    		def groovyUtils = new com.eviware.soapui.support.GroovyUtils(context)
+			def workingData = groovyUtils.getXmlHolder("GetWorkingData#Response")
+
+			//Use Library functions of testSuite Framework
+			def var = testRunner.testCase.testSuite.project.getTestSuiteByName("Framework").getTestCaseByName("Common").getTestStepByName("Library")
+			var.run(testRunner,context)
+			def obj = context.Library
+
+			//Commmon path for Enrcihment Panel
+			def enrichmentPanelPath = "//*:Entry[@Label='"+enrichmentPanelLabel+"'][@Fulfiller='"+fulfiller+"']/*:Data"
+			def EnrichmentPanelData=workingData.getDomNodes(enrichmentPanelPath+"/*")
+			
+			//Validate Data under Lablel EnrichmentPanel
+			if (EnrichmentPanelData == null || EnrichmentPanelData == [])
+			{
+				err.add("No data is found under label EnrichmentPanel")
+			}else{
+
+				//Created array of all the Enrichmnets (FloodRe, LexisNexis etc...) coming in the Working data label EnrichmentPanel
+				ArrayList actualEnrichmentsList=workingData.getNodeValues(enrichmentPanelPath+"//*:DataEnrichmentControlEntry//*:Name")
+				//Calling generic fuction to compare actual and expected enrichment lists 
+	 			obj.checkActualVsExpectedList("Compare Actual Enrichments coming in the response to the expected list",actualEnrichmentsList,expectedEnrichmentsList)
+
+
+				//Created array of all the Execution (Force, Bypass etc..) coming in the Working data label EnrichmentPanel
+				ArrayList actualExecutionValues=workingData.getNodeValues(enrichmentPanelPath+"//*:DataEnrichmentControlEntry//*:Execution")
+				//Calling generic fuction to compare actual and expected enrichment lists 
+				for(value in actualExecutionValues){
+	 				valueAgainstExpectedArray(value,expectedExecutionValues,"Execution")
+				}
+	 		}
+		} 
+		
+	    	catch (Exception e) 
+	    {
+	    	   count++
+	        err.add(" Exception in Library -- >  function =  'ValidateEnrichmentPanel' under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+	        err.add "Exception = " + e
+	        String str = e.getStackTrace().toString()
+	        def pattern = (str =~ /.groovy.(\d+)./)
+	        err.add " Error at line number = " + pattern[0][1]
+	    }
+	}
+
+	//This function will validate the value lets say x shoould be from the expected arraylist ['z','x','y'...]
+	def valueAgainstExpectedArray (def value, ArrayList ExpectedValues, def tagname)
+	{
+		try{
+			def count = 0
+			for (var in ExpectedValues){
+				if(value == var){
+					count++
+					break
+				}
+			}
+			if(count == 0)
+			log.error "Value under tag "+tagname+" should be one among "+ExpectedValues+" but actual value is "+value
+			
+		}
+		catch (Exception e)
+		{
+			err.add (" Exception in Library -- >  function =  'valueAgainstExpectedArray' under  | testStep = " + context.currentStep.getName() +  " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName()  )
+	       	err.add "Exception = "+ e
+	        	String str= e.getStackTrace().toString()
+	        	def pattern = ( str =~ /groovy.(\d+)./   )
+	        	err.add " Error at line number = " + pattern[0][1]
+		}
+	}
+
+
+	
+}
+context.setProperty("enrichmentPanel",new enrichmentPanel(log,context,testRunner))
+</script></con:config></con:testStep><con:testStep type="groovy" name="QuoteRef" id="7186f8a8-73e4-476b-a154-38c77f9cb668"><con:settings/><con:config><script>import java.util.regex.*
+class quoteReference
+{
+
+    def log
+    def context
+    def testRunner
+    //boolean err
+    
+    quoteReference(def log1,def context1,def testRunner1)
+    {
+        log=log1
+        context=context1
+        testRunner=testRunner1
+        //err=context.error
+    }
+
+
+	// Description of the function
+/* This function extracts addressLine1 &amp; riskpostcode from //*:Premises/*:PremisesRisk/*:Property/*
+    joins them and then compares it with whats being prepared by the system or the module B0040.
+*/
+
+	def ValidateQuoteReference(def hhRequestLabel, def quoteReferenceLabel, def fulfiller) 
+	{
+		log.info " *** Inside validateQuoteReference function ****** "
+	    try 
+	    {
+	    		def groovyUtils = new com.eviware.soapui.support.GroovyUtils(context)
+			def workingData = groovyUtils.getXmlHolder("GetWorkingData#Response")
+	        	def quoteID = workingData.getNodeValue('//*:Entry[@Label="'+quoteReferenceLabel+'"][@Fulfiller="'+fulfiller+'"]/*:Data')
+			log.info "Quote Ref Number in Working Data is $quoteID"
+			
+			if (quoteID == null)
+			{
+				context.error = true
+				log.error "Quote Ref Numb is null"
+				
+			}else{	
+				//	Assert quote reference confirms to the required pattern
+				Pattern regex = ~/^[A-Za-z0-9]{12}$/ // ~ is the pattern then the escapted chars are at /    	/			
+				def expected = quoteID ==~ regex // the double ==~ operator returns a boolean		
+				if (expected == false)
+				{
+					err = true
+					log.error "Quote reference does not confirm to regular expression $regex, quote reference returned is $quoteID"
+				}
+			}
+	
+	    } 
+	    catch (Exception e) 
+	    {
+	    	   err = true
+	        log.error " Exception in Library -- >  function =  'validateQuoteReference' under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName()
+	        log.error "Exception = " + e
+	        String str = e.getStackTrace().toString()
+	        def pattern = (str =~ /.groovy.(\d+)./)
+	        log.error " Error at line number = " + pattern[0][1]
+	    }
+	}
+}
+context.setProperty("quoteReference",new quoteReference(log,context,testRunner))</script></con:config></con:testStep><con:testStep type="groovy" name="Agg-HhQuoteRequest" id="506d4613-4322-4998-99ed-abd174f85a79"><con:settings/><con:config><script><![CDATA[class standardHhQuoteRequest
+{
+
+    def log
+    def context
+    def testRunner
+    def err
+    standardHhQuoteRequest(def log1,def context1,def testRunner1)
+    {
+        log=log1
+        context=context1
+        testRunner=testRunner1
+        err=context.error
+    }
+
+
+	// Description of the function
+/* This function extracts addressLine1 & riskpostcode from //*:Premises/*:PremisesRisk/*:Property/*
+    joins them and then compares it with whats being prepared by the system or the module B0040.
+*/
+
+	def ValidateStandardHhQuoteRequest(def hhRequestLabel, def standardHhQuoteRequestLabel, def fulfiller) 
+	{
+		log.info " *** Inside ValidateStandardHhQuoteRequest function ****** "
+	    try 
+	    {
+	    		def groovyUtils = new com.eviware.soapui.support.GroovyUtils(context)
+			def workingData = groovyUtils.getXmlHolder("GetWorkingData#Response")
+			def request = groovyUtils.getXmlHolder(hhRequestLabel+"#Request")
+
+			def HhQuoteRequest = workingData.getDomNode("//*:Entry[@Label='"+standardHhQuoteRequestLabel+"'][@Fulfiller='"+fulfiller+"']/*:Data/*")
+			def holder = groovyUtils.getXmlHolder("$HhQuoteRequest")
+
+			def ts = testRunner.testCase.testSuite.project.getTestSuiteByName("Framework").getTestCaseByName("Common").getTestStepByName("Library")
+			ts.run(testRunner,context)
+			def obj = context.Library
+
+			HashMap coverType =[
+			"ContentsAndBuildings": "BC",
+			"Contents": "C",
+			"Buildings": "B"			
+			]
+
+						
+			//Validate Header, Body - Contract Data, Policy Specific, Policy Event, Policy Details, CoverType and number of previous insurances
+			def CoverStart_Req = (request.getNodeValue("//*:quote/@CoverStart"))+"T00:00:00"
+			def coverType_request = request.getNodeValue("//*:quote/@CoverType")
+			def coverType_expected = coverType[coverType_request]
+
+			HashMap WorkingDataValues = [
+			"processABI": "//*:Header//*:ProcessABI",
+			"transactionType": "//*:Header//*:TransactionType",
+			"contractPositionIndicator": "//*:HouseholdRequest//*:ContractPositionIndicator",
+			"policyEventDateTime": "//*:HouseholdRequest//*:PolicyEventDateTime",
+			"inceptionDate": "//*:HouseholdRequest//*:InceptionDate",
+			"currentTermStartDate": "//*:HouseholdRequest//*:CurrentTermStartDate",
+			"coverType": "//*:HouseholdRequest//*:PolicySpecific/*:CoverType",
+			"numPrevInsurance": (holder.getDomNodes("//*:HouseholdRequest//*:PreviousInsurance")).size().toString()
+			]
+
+			HashMap RequestValues = [
+			"processABI": "NewBusiness",
+			"transactionType": "1",
+			"contractPositionIndicator": "2",
+			"policyEventDateTime": CoverStart_Req,
+			"inceptionDate": CoverStart_Req,
+			"currentTermStartDate": CoverStart_Req,
+			"coverType": coverType_expected,
+			"numPrevInsurance": (request.getDomNodes("//*:CoverRequired//*:PreviousInsurance")).size().toString()
+			]
+
+			compareHashMaps(WorkingDataValues, RequestValues, holder, request)
+
+			
+	        	
+	        	//Validate Proposer Details
+	        	def num_proposerReq = request.getDomNodes("//*:Proposer")
+	        	def num_proposerWD = holder.getDomNodes("//*:Proposer")
+	        	
+	        	if(num_proposerReq.size() == num_proposerWD.size()){
+
+	        		for(int i =0 ; i<num_proposerReq.size(); i++){
+	        		
+		        		HashMap Request_Proposer = [
+					"Forename": "//*:Proposer["+(i+1)+"]/@FirstName",
+					"Surname": "//*:Proposer["+(i+1)+"]/@LastName",
+					"DateOfBirth": "//*:Proposer["+(i+1)+"]/@DateOfBirth",
+					"HouseName": "//*:Proposer["+(i+1)+"]/*:CorrespondenceAddress/@HouseName",
+					"AddressLine1": "//*:Proposer["+(i+1)+"]/*:CorrespondenceAddress/@AddressLine1",
+					"AddressLine2": "//*:Proposer["+(i+1)+"]/*:CorrespondenceAddress/@AddressLine2",
+					"AddressLine3": "//*:Proposer["+(i+1)+"]/*:CorrespondenceAddress/@AddressLine3",
+					"AddressLine4": "//*:Proposer["+(i+1)+"]/*:CorrespondenceAddress/@AddressLine4",
+					"Postcode": "//*:Proposer["+(i+1)+"]/*:CorrespondenceAddress/@Postcode",
+					"DateAddressOccupied": "//*:Proposer["+(i+1)+"]/@DateResidencyStarted",
+					"ProposerType": "//*:Proposer["+(i+1)+"]/@ProposerType",
+					"EmailAddress": "//*:Proposer["+(i+1)+"]/@EmailAddress",
+					"PhoneNumber": "//*:Proposer["+(i+1)+"]/@DayTimePhone"
+					]
+	
+					HashMap WD_Proposer = [
+					"Forename": "//*:Proposer["+(i+1)+"]//*:Forename",			
+					"DateOfBirth": "//*:Proposer["+(i+1)+"]//*:DateOfBirth",	
+					"Surname": "//*:Proposer["+(i+1)+"]//*:Surname",
+					"HouseName": "//*:Proposer["+(i+1)+"]/*:ProposerAddressDetails/*:Address/*:HouseName",
+					"AddressLine1": "//*:Proposer["+(i+1)+"]/*:ProposerAddressDetails/*:Address/*:AddressLine1",
+					"AddressLine2": "//*:Proposer["+(i+1)+"]/*:ProposerAddressDetails/*:Address/*:AddressLine2",
+					"AddressLine3": "//*:Proposer["+(i+1)+"]/*:ProposerAddressDetails/*:Address/*:AddressLine3",
+					"AddressLine4": "//*:Proposer["+(i+1)+"]/*:ProposerAddressDetails/*:Address/*:AddressLine4",
+					"Postcode": "//*:Proposer["+(i+1)+"]/*:ProposerAddressDetails/*:Address/*:Postcode",	
+					"DateAddressOccupied": "//*:Proposer["+(i+1)+"]/*:DateAddressOccupied",
+					"ProposerType": "//*:Proposer["+(i+1)+"]/*:ProposerType",
+					"EmailAddress": "//*:Proposer["+(i+1)+"]/*:ContactDetails/*:EmailAddress",
+					"PhoneNumber": "//*:Proposer["+(i+1)+"]/*:ContactDetails/*:PhoneNumber"
+					]
+	
+					compareHashMaps(WD_Proposer, Request_Proposer, holder, request)
+	        		}
+	        	}
+	        	else{
+	        		err.add("Proposers tag in HhQuoteRequest in working data are ***"+num_proposerWD.size()+"*** which should be ***"+num_proposerReq.size()+"*** as sent in the request")
+	        	}
+
+
+	        	//Validate Premises Details
+
+	        	HashMap Req_Premises = [
+			"Premises_HouseName": "//*:Premises/*:Address/@HouseName",
+			"Premises_AddressLine1": "//*:Premises/*:Address/@AddressLine1",
+			"Premises_AddressLine2": "//*:Premises/*:Address/@AddressLine2",
+			"Premises_AddressLine3": "//*:Premises/*:Address/@AddressLine3",
+			"Premises_AddressLine4": "//*:Premises/*:Address/@AddressLine4",
+			"Premises_Postcode": "//*:Premises/*:Address/@Postcode",
+			"Buildings_RequestedCoverAmount": "//*:Buildings/@RebuildingCost",
+			"Contents_SumContentsValue": "//*:Contents/@TotalSumInsured"			
+	        	]
+
+	        	HashMap WD_Premises = [
+			"Premises_HouseName": "//*:Premises//*:RiskAddress/*:HouseName",
+			"Premises_AddressLine1": "//*:Premises//*:RiskAddress/*:AddressLine1",
+			"Premises_AddressLine2": "//*:Premises//*:RiskAddress/*:AddressLine2",
+			"Premises_AddressLine3": "//*:Premises//*:RiskAddress/*:AddressLine3",
+			"Premises_AddressLine4": "//*:Premises//*:RiskAddress/*:AddressLine4",
+			"Premises_Postcode": "//*:Premises//*:RiskAddress/*:Postcode",	
+			"Buildings_RequestedCoverAmount": "//*:Buildings/*:RequestedCoverAmount",
+			"Contents_SumContentsValue": "//*:Contents/*:SumContentsValue"
+	        	]
+
+			
+			compareHashMaps(WD_Premises, Req_Premises, holder, request)
+
+
+
+			//Valiadte Claims against sent in Aggregator request
+			def ClaimNum_Req = request.getDomNodes("//*:Claim")
+			def ClaimNum_wd = holder.getDomNodes("//*:Proposer[1]/*:Loss")
+			if(ClaimNum_Req.size() == ClaimNum_wd.size()){
+				
+				for(int i =0 ; i<ClaimNum_Req.size() ; i++){
+
+					def covertype = request.getNodeValue("//*:Claim["+(i+1)+"]/@CoverType")
+					def Exp_CoverTypeValue = (covertype == "Buildings")? "1" : "2"
+
+					def isCurrentAddress = request.getNodeValue("//*:Claim["+(i+1)+"]/@IsCurrentAddress")
+					def Exp_isCurrentAddress = (isCurrentAddress == "true") ? "Y" : "N"
+					
+					HashMap Claims_WD = [
+						"DateClaimMade": "//*:Proposer[1]/*:Loss["+(i+1)+"]/*:DateClaimMade",
+						"Amount": "//*:Proposer[1]/*:Loss["+(i+1)+"]/*:Amount",
+						"Type": "//*:Proposer[1]/*:Loss["+(i+1)+"]/*:Type",
+						"CoverSection": "//*:Proposer[1]/*:Loss["+(i+1)+"]/*:CoverSection",
+						"AtCurrentAddress": "//*:Proposer[1]/*:Loss["+(i+1)+"]/*:AtCurrentAddress"
+					]
+
+					HashMap Claims_Req = [
+						"DateClaimMade": "//*:Claim["+(i+1)+"]/@Date",
+						"Amount": "//*:Claim["+(i+1)+"]/@Cost",
+						"Type": "//*:Claim["+(i+1)+"]/@ClaimType",
+						"CoverSection": Exp_CoverTypeValue,
+						"AtCurrentAddress": Exp_isCurrentAddress
+					]
+					
+					compareHashMaps(Claims_WD, Claims_Req, holder, request)						
+				}								
+			}
+
+			//Validate AllRisk Details
+
+			//Check if AllRisks tag passed in request
+			if((request.getDomNodes("//*:AllRisks")).size() > 0){
+
+				//Validate Specified Items in All Risk Details
+				def SpecifiedItems_Req = (request.getDomNodes("//*:AllRisks/*:SpecifiedItems")).size()
+				def SpecifiedItems_WD = (holder.getDomNodes("//*:AllRisks/*:Specified")).size()
+				if(SpecifiedItems_Req == SpecifiedItems_WD){
+					for(int i=1; i<=SpecifiedItems_Req; i++){
+						def SpecifiedItemXpath = [
+							["//*:AllRisks/*:SpecifiedItems[$i]/@ItemType",		"//*:AllRisks/*:Specified[$i]/*:RiskCategory",		"SpecifiedItem[$i] RiskCategory"],
+							["//*:AllRisks/*:SpecifiedItems[$i]/@Description",	"//*:AllRisks/*:Specified[$i]/*:Description",		"SpecifiedItem[$i] Description"],
+							["//*:AllRisks/*:SpecifiedItems[$i]/@Value",			"//*:AllRisks/*:Specified[$i]/*:AmountRequired",		"SpecifiedItem[$i] AmountRequired"],
+						]
+						obj.cmpValFrom2Req("Compare Specified Items[$i] details in HhQuoteRequest against passed in Agg request", request, holder, SpecifiedItemXpath)
+					}
+				}
+				else
+					err.add("Specified items count in HhQuoteRequest are ***$SpecifiedItems_WD*** which should be ***$SpecifiedItems_Req*** as passed in the request")
+
+
+				//Validate Specified Items in Contents
+				def SpecifiedItemsContents_Req = (request.getDomNodes("//*:Contents/*:SpecifiedItems")).size()
+				def SpecifiedItemsContents_WD = (holder.getDomNodes("//*:Contents//*:Specified")).size()
+				if(SpecifiedItemsContents_Req == SpecifiedItemsContents_WD){
+					for(int i=1; i<=SpecifiedItemsContents_Req; i++){
+						def SpecifiedItemContentsXpath = [
+							["//*:Contents/*:SpecifiedItems[$i]/@ItemType",		"//*:Contents//*:Specified[$i]/*:RiskCategory",		"Contents SpecifiedItem[$i] RiskCategory"],
+							["//*:Contents/*:SpecifiedItems[$i]/@Description",	"//*:Contents//*:Specified[$i]/*:Description",		"Contents SpecifiedItem[$i] Description"],
+							["//*:Contents/*:SpecifiedItems[$i]/@Value",			"//*:Contents//*:Specified[$i]/*:AmountRequired",		"Contents SpecifiedItem[$i] AmountRequired"],
+						]
+						obj.cmpValFrom2Req("Compare Specified Items[$i] details in HhQuoteRequest against passed in Agg request", request, holder, SpecifiedItemContentsXpath)
+					}
+				}
+				else
+					err.add("Specified items count in HhQuoteRequest are ***$SpecifiedItems_WD*** which should be ***$SpecifiedItems_Req*** as passed in the request")
+			}
+			else{
+				//Check All Risks tag in HhQuoteRequest in working Data
+				if((holder.getDomNodes("//*:AllRisks")).size() > 0)
+					err.add("All Risks tag is present in HhQuoteRequest in working data but not passed in Aggregator Request")
+				else
+					log.info "All Risk Details are not sent in the request and not present in HhQuoteRequest as well"
+			}
+
+			//Validate Unspecified Items under All Risk Details
+			HashMap Unspecified = [
+				"ClothingValue": "C08",
+				"FursValue": "F02",
+				"PhotographicValue": "P08",
+				"SportsEquipmentValue": "S04",
+				"ValuablesValue": "V01",
+				"FreezerContentsValue": "F01",
+				"LegalExpensesValue": "L01",
+				"PersonalEffectsValue": "P05"
+			]
+			def expectedUnspecifiedRiskCategory = []
+			for(var in Unspecified){
+				def UnspecifiedValue_Req = request.getNodeValue("//*:AllRisks/@"+var.key)
+				if(UnspecifiedValue_Req != null){
+					expectedUnspecifiedRiskCategory.add(var.value)
+				}
+			}
+			def actualUnspecifiedRiskCategory = holder.getNodeValues("//*:AllRisks/*:Unspecified/*:RiskCategory")
+			
+			if(expectedUnspecifiedRiskCategory == actualUnspecifiedRiskCategory)
+			log.info "Unspecified tags are present in HhQuoteRequest with RiskCategories ***$actualUnspecifiedRiskCategory*** as expected" 
+			else
+			err.add("Unspecified Risks are present for Risk Categories -> ***$actualUnspecifiedRiskCategory*** in HhQuoteRequest but there should be RiskCategories for $expectedUnspecifiedRiskCategory")
+			
+	        	
+	
+	    } 
+	    catch (Exception e) 
+	    {
+	        err.add(" Exception in Library -- >  function =  'validateStandardHhQuoteRequest' under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+	        err.add "Exception = " + e
+	        String str = e.getStackTrace().toString()
+	        def pattern = (str =~ /.groovy.(\d+)./)
+	        err.add " Error at line number = " + pattern[0][1]
+	    }
+	}
+
+	//Compare the values in two Hashmaps where both are having same keys but values are different for the keys
+	def compareHashMaps(HashMap Map_ActValues, HashMap Map_ExpValues, def Holder_ActValuesXML, def Holder_ExpValuesXML){
+
+		for (var in Map_ExpValues){
+
+			def expectedValue = var.value
+			def actualValue = Map_ActValues[var.key]
+			def tagName = var.key
+			
+			//Check expectedValue is an xpath or a value
+			if(expectedValue.contains("/") && expectedValue.contains(":")){
+				expectedValue = Holder_ExpValuesXML.getNodeValue(expectedValue)
+			}
+			
+			//Check actualValue is an xpath or a value
+			if(actualValue.contains("/") && actualValue.contains(":")){
+				actualValue = Holder_ActValuesXML.getNodeValue(actualValue)
+			}
+			
+			if(expectedValue != actualValue)
+		        	err.add("$tagName value is ***$actualValue*** which should be ***$expectedValue*** ")
+		     else
+		     	log.info "$tagName value is ***$actualValue*** as expected"
+		}
+	}
+
+		
+}
+context.setProperty("standardHhQuoteRequest",new standardHhQuoteRequest(log,context,testRunner))]]></script></con:config></con:testStep><con:testStep type="groovy" name="QuoteEngineResponse" id="7d78bd39-ac91-4e11-9c8f-ffef569e6356"><con:settings/><con:config><script>class sspQuotesEngineResponse
+{
+
+    def log
+    def context
+    def testRunner
+    boolean err
+    
+    sspQuotesEngineResponse(def log1,def context1,def testRunner1)
+    {
+        log=log1
+        context=context1
+        testRunner=testRunner1
+        //err=context.error
+    }
+
+
+	// Description of the function
+/* This function extracts addressLine1 &amp; riskpostcode from //*:Premises/*:PremisesRisk/*:Property/*
+    joins them and then compares it with whats being prepared by the system or the module B0040.
+*/
+
+	def ValidateSspQuotesEngineResponse(def hhRequestLabel, def sspQuotesEngineResponseLabel, def fulfiller) 
+	{
+		log.info " *** Inside ValidateSspQuotesEngineResponse function ****** "
+	    try 
+	    {
+	    		def groovyUtils = new com.eviware.soapui.support.GroovyUtils(context)
+			def workingData = groovyUtils.getXmlHolder("GetWorkingData#Response")
+			def request = groovyUtils.getXmlHolder(hhRequestLabel+"#Request")
+
+			def SspQuotesEngineResponse = workingData.getDomNode("//*:Entry[@Label='"+sspQuotesEngineResponseLabel+"'][@Fulfiller='"+fulfiller+"']/*:Data/*")
+			def holder = groovyUtils.getXmlHolder("$SspQuotesEngineResponse")
+
+			def ts = testRunner.testCase.testSuite.project.getTestSuiteByName("Framework").getTestCaseByName("Common").getTestStepByName("Library")
+			ts.run(testRunner,context)
+			def obj = context.Library
+
+			def expectedNodesList = ["SchemeNumber", "SchemeMnemonic", "SchemeRawDataBase64Encoded", "SchemeRawData", "Endorsement", "UnderwritingNote", "ExcessBreakdown", "PremiumBreakdown", "Warning", "QuoteDetail", "SoftwareDetail", "BuildingsDetail", "ContentsDetail", "PolicySection", "PolicyDoc", "PaymentOption", "MoneyAndCreditCardDetail", "OtherCoversDetail", "CaravanDetail", "SmallCraftDetail", "AllRisksDetail", "OfficeUse", "FeatureAndBenefit", "PremFlexDetails", "InsurerReference", "InsurerName"]
+			def nodes = holder.getDomNodes("//*:Scheme[1]/*")
+			ArrayList ActualNodesList = []
+			for(var in nodes){
+				ActualNodesList.add(var.getNodeName())
+			}
+			ActualNodesList = ActualNodesList.unique()
+			obj.checkActualVsExpectedList("Compare the nodes present under label=HhSspQuotesEngineResponse with the expected list of nodes as per the schema", ActualNodesList, expectedNodesList)
+	
+	    } 
+	    catch (Exception e) 
+	    {
+	    	   err = true
+	        log.error " Exception in Library -- >  function =  'validateQuoteReference' under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName()
+	        log.error "Exception = " + e
+	        String str = e.getStackTrace().toString()
+	        def pattern = (str =~ /.groovy.(\d+)./)
+	        log.error " Error at line number = " + pattern[0][1]
+	    }
+	}
+}
+context.setProperty("sspQuotesEngineResponse",new sspQuotesEngineResponse(log,context,testRunner))</script></con:config></con:testStep><con:properties/><con:reportParameters/></con:testCase><con:testCase id="a6c6bd31-09e6-470f-9c74-72a7ea608d21" discardOkResults="true" failOnError="true" failTestCaseOnErrors="true" keepSession="false" name="Common" searchProperties="true" timeout="0" maxResults="0"><con:settings/><con:savedRecentRuns>1</con:savedRecentRuns><con:testStep type="groovy" name="Library" id="cef9353e-c61b-40bd-88a2-d9eda8f42226"><con:settings/><con:config><script><![CDATA[public class technical
+{
+	def log
+	def context
+	def testRunner
+	boolean err
+	
+	
+	technical(def log1, def context1, def testRunner1)
+	{
+		     //context2=context 
+	      	log = log1
+			context = context1
+			testRunner = testRunner1
+			err = context.error
+    }
+
+   // Code to through the exception 
+   def exceptionFunc(def funcName)
+   {
+	   err=true
+   		     log.error(" Exception in Library -- >  function =   " + 'getNodeValue'  +"under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+			log.error "Exception = " + e
+			String str = e.getStackTrace().toString()
+			def pattern = (str = ~ / groovy.( \ d + ). / )
+			log.error " Error at line number = " + pattern[0][1]
+   }
+   
+    /* This function is to get the business object of a class. 
+     * Parameter = Pass the name of the testCaseName & testStep under Business  
+     */
+     def returnBusObj(def testCaseName,def testStep)
+     {
+     	try 
+     	{
+            def ts=testRunner.testCase.testSuite.project.getTestSuiteByName("BusinessModules").getTestCaseByName(testCaseName).getTestStepByName(testStep)
+            ts.run(testRunner,context)
+            return context."${objName}"
+     	}
+     	catch (Exception e)
+		{
+            exceptionFunc("returnBusObj")
+		}
+    }
+    
+	// to check if a url is valid or not 
+	
+	def boolean isValidURL(String url)
+    {
+        /* Try creating a valid URL */
+        log.info "** Inside isValidURL function ** "
+        try {
+            new URL(url).toURI();
+            log.info " $url is a valid url " 
+            return true;
+        }
+         
+        // If there was an Exception
+        // while creating URL object
+        catch (Exception e) {
+			err=true
+        	 log.error "Its not a valid url = " + url
+            return false;
+        }
+    }
+
+    
+	/*
+	 * This function is to get NodeValue from an xml
+	 * Argument 1 :- XmlHolder from which value has to be extracted
+	 * Argument 2 :-  A multidimensional array which has the variable name in which value will be set, Xpath from which the value need to be extracted
+	
+	 */
+
+	def getNodeValue(def xml, def varXpath)
+	{
+		try
+		{
+			def temp
+			//
+			for (int i = 0; i < varXpath.size(); i++)
+			{
+				// getting the value based on xpath
+				temp = xml.getNodeValue(varXpath[i][1])
+
+					// setting the property at testcase level in the varXpath[0]
+					testRunner.testCase.setPropertyValue(varXpath[i][0], temp)
+					// Debugging
+					// log.info "TestCase property   = " + varXpath[i][0] + " |  Xpath =  " + varXpath[i][1]  + " |  Value Stored in testCase Property  = " + temp
+			}
+		}
+		catch (Exception e)
+		{
+			err=true
+			log.error(" Exception in Library -- >  function =  'getNodeValue'  under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+			log.error "Exception = " + e
+			String str = e.getStackTrace().toString()
+				def pattern = (str = ~ / groovy.( \ d + ). / )
+				log.error " Error at line number = " + pattern[0][1]
+		}
+
+	}
+
+// function to get attribute values
+
+/*def getAttributeValue(def xml, def attriubteXpath)
+	{
+		try
+		{
+			def temp
+			//
+			for (int i = 0; i < varXpath.size(); i++)
+			{
+				// getting the value based on xpath
+				temp = xml.getNodeValue(varXpath[i][1])
+
+					// setting the property at testcase level in the varXpath[0]
+					testRunner.testCase.setPropertyValue(varXpath[i][0], temp)
+					// Debugging
+					// log.info "TestCase property   = " + varXpath[i][0] + " |  Xpath =  " + varXpath[i][1]  + " |  Value Stored in testCase Property  = " + temp
+			}
+		}
+		catch (Exception e)
+		{
+			log.error(" Exception in Library -- >  function =  'getRequestId'  under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+			log.error "Exception = " + e
+			String str = e.getStackTrace().toString()
+				def pattern = (str = ~ / groovy.( \ d + ). / )
+				log.error " Error at line number = " + pattern[0][1]
+		}
+
+	}*/
+
+//  *** Business Function *****
+
+	/*
+	 * This function is to check status of a request is 200, if not fail the testcase
+	 * Argument 1 :- XmlHolder from which value has to be extracted
+	 * Argument 2 :-  A multidimensional array which has the variable name in which value will be set, Xpath from which the value need to be extracted
+	 * Argument 3 :- err variable to catch if there are any failures
+	 */
+
+	def requestStatus(def stepName)
+	{
+		try
+		{
+
+			def headers = testRunner.testCase.getTestStepByName(stepName).httpRequest.response.responseHeaders['#status#']
+				if (!headers.contains("HTTP/1.1 200 OK"))
+				{
+					testRunner.fail("** Application Failure ** " + headers )
+					testRunner.fail("No futher testSteps will be run inside the current case")
+				}
+				else
+				{
+					log.info(stepName + " Request run successfully for TC= " + testRunner.testCase.getName())
+				}
+		}
+		catch (Exception e)
+		{
+			err=true
+			log.error(" Exception in Library -- >  function =  'requestStatus'  under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+			log.error "Exception = " + e
+			log.error "Either the request did not ran or the stepName passed to this function is wrong"
+			String str = e.getStackTrace().toString()
+				def pattern = (str = ~ / groovy.( \ d + ). / )
+				log.error " Error at line number = " + pattern[0][1]
+		}
+
+	}
+
+	// Function to check if the XML contains certain values  as passed into the array data
+
+	def containsData(String xml, def data)
+	{
+		try
+		{
+			//log.info "** Inside containsData function  "
+			for (def var in data)
+			{
+
+				if (xml.contains(var)) // check if the data is present in the xml
+				{
+					log.info var + " is present in XML "
+				}
+				else
+				{
+					err=true
+					log.error(var + " is not present in XML ")
+				}
+			}
+
+		}
+		catch (Exception e)
+		{
+			err=true
+			log.error(" Exception in Library -- >  function =  'containsData'  under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+			log.error "Exception = " + e
+			String str = e.getStackTrace().toString()
+				def pattern = (str = ~ / groovy.( \ d + ). / )
+				log.error " Error at line number = " + pattern[0][1]
+		}
+		//  log.info "** Exited contains data function **"
+
+	}
+
+	// function to check if  getDomNode does not retrun null value for the xml
+
+	def checkDomNode(def xml, def xpaths)
+	{
+		try
+		{
+			def temp
+			for (def var in xpaths)
+			{
+				temp = xml.getDomNode(var)
+					if (temp == null)
+					{
+						err=true
+						log.error var + " is not present "
+					}
+					else
+					{
+						log.info var + " node is present "
+					}
+			}
+			
+		}
+		catch (Exception e)
+		{
+			err=true
+			log.error(" Exception in Library -- >  function =  'checkDomNode' under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+			log.error "Exception = " + e
+			String str = e.getStackTrace().toString()
+				def pattern = (str = ~ / groovy.( \ d + ). / )
+				log.error " Error at line number = " + pattern[0][1]
+		}
+	}
+
+	// function to check if  getDomNode retruns null value for the xpaths then passed otherwise fail 
+
+	def checkDomNodeNotPresent(def xml, def xpaths)
+	{
+		try
+		{
+			def temp
+			for (def var in xpaths)
+			{
+				temp = xml.getDomNode(var)
+					if (temp == null)
+					{
+					    log.info var +  " is not present as expected"
+					
+					}
+					else
+					{ 
+						err=true
+						log.error var + " node is present when its not expected"
+					}
+			}
+			
+		}
+		catch (Exception e)
+		{
+			err=true
+			log.error(" Exception in Library -- >  function =  'checkDomNodeNotPresent' under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+			log.error "Exception = " + e
+			String str = e.getStackTrace().toString()
+				def pattern = (str = ~ / groovy.( \ d + ). / )
+				log.error " Error at line number = " + pattern[0][1]
+		}
+	}
+
+	// Below code should not be changed as its a generic code
+
+	// function to check if actual Nodes are equal to expected nodes
+	def checkNodePresence(def actualList, def expNodes)
+	{
+		try
+		{
+			// Converting array to map to check how many times a node is present or missed
+			def expList = [: ]
+			for (def var in expNodes)
+			{
+				expList.key = var
+					expList[var] = 0
+			}
+
+			def extraNodes = [: ]
+			for (def var in actualList)
+			{
+				// getting the nodeName
+				def nodeName = var.getNodeName()
+					def nodefound = false
+					for (def var1 in expList)
+					{
+						nodefound = false
+							if (var1.key == nodeName)
+							{
+								// if node is found then we are increasing the map value by 1 and coming out of the node
+								var1.value = var1.value + 1
+									nodefound = true
+									break
+
+							}
+					}
+
+					// if the node does not exist in the expectedNOde list add it to a map extranodes
+					if (nodefound == false)
+					{
+						if (extraNodes[nodeName] == null)
+						{
+							extraNodes.put(nodeName, 1)
+						}
+						else
+						{
+							extraNodes[nodeName] = extraNodes[nodeName] + 1
+						}
+					}
+			}
+
+			// Printing the nodes which were not supposed to be there as per the expected list
+			for (def var in extraNodes)
+			{
+				err=true
+				log.error(" ${var.key} is present ${var.value} times but its not there in expectedlist ")
+			}
+
+			// Now checking which all Keys in the map has value as 0
+			// Those with value 0 means those nodes were not found
+			for (def var in expList)
+			{
+				if (var.value != 0)
+				{
+					log.info " ${var.key} was present ${var.value} times "
+				}
+				else
+				{
+					err=true
+					log.error " ${var.key} was not present "
+				}
+			}
+		}
+		catch (Exception e)
+		{
+			log.error(" Exception in Library -- >  function =  'checkNodePresence' under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+			log.error "Exception = " + e
+			String str = e.getStackTrace().toString()
+				def pattern = (str = ~ / groovy.( \ d + ). / )
+				log.error " Error at line number = " + pattern[0][1]
+
+		}
+	}
+
+	// function to check if actual Values are equal to expected values
+	def checkActualVsExpectedList(def cmpmessage, def actualList, def expList)
+	{
+		try
+		{
+                log.info cmpmessage
+			def common = actualList.intersect(expList)
+				if (common.size() > 0)
+				{
+					log.info "Below nodes are present as expected "
+					log.info common
+				}
+				actualList.removeAll(common)
+				if (actualList.size() > 0)
+				{
+					log.warn "Below  nodes are extra and are not part of expected list "
+					log.warn actualList
+				}
+				expList.removeAll(common)
+				if (expList.size() > 0)
+				{
+					err=true
+					log.error cmpmessage
+					log.error "Below  nodes are required  and are not present in expected list "
+					log.error expList
+				}
+		}
+	catch (Exception e)
+	{
+		err=true
+		log.error(" Exception in Library -- >  function =  'checkActualVsExpectedList' under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+		log.error "Exception = " + e
+		String str = e.getStackTrace().toString()
+			def pattern = (str = ~ / groovy.( \ d + ). / )
+			log.error " Error at line number = " + pattern[0][1]
+
+	}
+}
+
+
+// function to check if certain nodes are present under the xpath 
+// pass the xmlholder 
+// Xpath under which nodes are present 
+// Nodes to be compared with 
+def nodePresenceUnderXpath(def xmlHolder,def xpath,def expNodeNames)
+{
+	try
+	{
+		def actNodes = xmlHolder.getDomNodes(xpath)
+          ArrayList actNodeNames=[]
+		for(def var in actNodes)
+		{
+			def temp=var.getNodeName()
+			actNodeNames.add(temp)
+	//		log.info "node added in list " + temp
+		}
+     //   log.info "Nodes found @ mentioned xpath =  " + actNodeNames
+		// calling function to compare actual list Vs ExpectedList 
+           checkActualVsExpectedList("Comparison function ",actNodeNames,expNodeNames)
+		 
+	}
+	catch(Exception e)
+    { 
+	err=true
+	log.error(" Exception in Library -- >  function =  'nodePresenceUnderXpath' under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+     log.error "Exception = " + e
+	String str = e.getStackTrace().toString()
+	def pattern = (str = ~ / groovy.( \ d + ). / )
+	log.error " Error at line number = " + pattern[0][1]
+    }
+}
+
+
+// function to check if certain values are present under the xpath 
+// pass the xmlholder 
+// Xpath under which keys are present 
+// Nodes to be compared with 
+def valuePresenceUnderXpath(def xml,def xpath,ArrayList expNodeNames)
+{
+	try
+	{
+	//	log.info xml
+	//	log.info xpath
+	//	log.info expNodeNames
+		ArrayList actNodes = xml.getNodeValues(xpath)
+           //   log.info "Actual list we got " + actNodes
+		
+		// calling function to compare actual list Vs ExpectedList 
+           checkActualVsExpectedList(actNodes,expNodeNames)
+		 
+	}
+	catch(Exception e)
+    { 
+	err=true
+	log.error(" Exception in Library -- >  function =  'valuePresenceUnderXpath' under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+     log.error "Exception = " + e
+	String str = e.getStackTrace().toString()
+	def pattern = (str = ~ / groovy.( \ d + ). / )
+	log.error " Error at line number = " + pattern[0][1]
+    }
+}
+
+
+
+
+
+// this function validates premium if <9999 and also stores the premium value in testCase Property =TotalPremium
+// input - Pass the response As Xml
+
+def premiumValidation (def responseAsXml)
+{
+
+try
+{
+def results=new XmlParser().parseText(responseAsXml)
+def  prem=results.'**'.findAll{it.RatingTerms.text()=='Final Premium Payable'}.collect{it.TotalPremium.text()}
+
+//log.info "Total Premium  = " + prem[0]
+String premium=prem[0]
+def intPremium
+def MaxPremium=9999.0
+if(premium=='')
+{
+	err=true
+	log.error("Premium is an empty string. please check the xml ")
+	log.error ("testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+}
+else if(premium!=null)
+{
+intPremium = Float.parseFloat(premium)
+}
+
+//log.info intPremium + "= intPremium "
+    switch(premium) {
+    	/*   case null:
+        log.error("Total Premium is null")
+        log.error ("testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+        break*/
+        case 0:
+		err=true
+        log.error("Premium is zero")
+        log.error ("testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+        break;
+		case {intPremium==MaxPremium}:
+		err=true
+        log.error("Quote returns Total premium of = " + intPremium + " which is not expected " )
+        log.error ("testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+        break;
+        case {intPremium>MaxPremium}:
+		err=true
+        log.error("Quote returns Total premium of = " + intPremium + " which is more than the max premium "+MaxPremium)
+        log.error ("testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+        break
+        default:
+		err=true
+        log.info "Premium Value = " + premium + " and its stored in testCase Level property named TotalPremium"
+        testRunner.testCase.setPropertyValue("TotalPremium", premium)
+     }
+}
+catch(Exception e)
+{
+	err=true
+	log.error(" Exception in Library -- >  function =  'premiumValidation' under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+     log.error "Exception = " + e
+	String str = e.getStackTrace().toString()
+	def pattern = (str = ~ / groovy.( \ d + ). / )
+	log.error " Error at line number = " + pattern[0][1]
+
+	
+}
+
+}
+
+
+
+	
+// function to compare 2 values extracted based on 2 xpaths from each from a different XMLHolder
+def cmpValfromList(def compareMessage,def xml1Holder,def xml2Holder, def xpathList)
+{
+    try
+    {
+        log.info compareMessage
+        ArrayList  temp1
+        ArrayList  temp2
+        def temp1count
+        def temp2count
+        for(def var in xpathList)
+        {
+            temp1=xml1Holder.getNodeValues(var[0])
+            temp2=xml2Holder.getNodeValues(var[1])
+            
+            checkActualVsExpectedList("comparing values for ${var[2]} ",temp1,temp2)
+            
+        }
+    }
+    catch(Exception e)
+    {
+		err=true
+        log.error (" Exception in Library -- >  function =  'cmpValfromList' under 'Library' for  | testStep = " + context.currentStep.getName() +  " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName()  )
+        log.error "Exception = "+ e
+        String str= e.getStackTrace().toString()
+        def pattern = ( str =~ /groovy.(\d+)./   )
+        log.error " Error at line number = " + pattern[0][1]
+    }
+}
+
+
+
+
+// function to compare 2 values extracted based on 2 xpaths from each from a different XMLHolder
+def cmpValFrom2Req(def req1,def req1Name,def req2,def req2Name, def xpathList)
+{
+	def temp1
+	def temp2
+	   for(def var in xpathList)
+	   {
+	   	temp1=req1.getNodeValue(var[0])
+	   	temp2=req2.getNodeValue(var[1])
+
+	   	if(temp1==temp2)
+	   	{
+	   		log.info req1Name + " -->"+ var[0] + " ==  "+  req2Name + " --> "+ var[1] + " = "  + temp1
+	   		//log.info "Value are equal as expected " + temp1
+	   	}
+	   	else
+	   	{
+			err=true
+	   		log.error "Below Values did not matched "
+	   		log.error req1Name + " = "+ var[0] +  " = " + temp1
+	   		log.error req2Name + " = "+ var[1] +  " = " + temp2
+	   	}
+	   }
+}
+
+
+//******************************** Function to check if the XML does not contain certain values  as passed into the array data******************************
+
+def notContainsData(String xml,def data)
+{
+                try
+                {
+                for(def var in data)
+                {
+                                
+                                if(!xml.contains(var)) // check if the data is present in the xml
+                                {
+                                                log.info var + " is not present in XML " 
+                                }
+                                else
+                                {
+									err=true
+                                                log.error (var + " is present in XML ")
+                                }
+                }
+                
+    }
+                catch(Exception e)
+                {
+           log.error (" Exception in Library -- >  function =  'notContainsData' under 'Library' for  | testStep = " + context.currentStep.getName() +  " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName()  )                
+                 log.error "Exception = "+ e
+                 String str= e.getStackTrace().toString()
+            def pattern = ( str =~ /groovy.(\d+)./   )
+            log.error " Error at line number = " + pattern[0][1]
+                }
+  
+}
+
+// Business Function to get the request id
+// You need to pass the request Name from whose response it has to be fetched 
+// Also property Name where it will be Stored. 
+
+    def getRequestId(def reqName)
+    {
+    	
+    	try
+    	{
+      
+        def requestid = testRunner.testCase.getTestStepByName(reqName).httpRequest.response.responseHeaders["X-Request-Id"][0]
+        testRunner.testCase.setPropertyValue(reqName+"Id",,requestid)
+        log.info "Request Id: " +requestid+ " stored @ TC level under property Name  " + reqName+"Id"
+    	}
+    	catch(Exception e)
+    	{
+			err=true
+           log.error (" Exception in Library -- >  function =  'getRequestId' under 'Library' for | testStep = " + context.currentStep.getName() +  " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName()  )                
+                 log.error "Exception = "+ e
+                 String str= e.getStackTrace().toString()
+            def pattern = ( str =~ /groovy.(\d+)./   )
+            log.error " Error at line number = " + pattern[0][1]
+                }
+    	}
+
+// Business function to exract ISD
+// responseXml is the XML response of the request 
+// requestName is the name of the request so ISD can be stored InSide it 
+// by default ISD is stored at Suite Level 
+def extractISD(def  responseXml,def requestName)
+{
+ try
+ {
+               String xmlObj=responseXml.toString()
+               String [] responseXmlObj=xmlObj.split('<InsurerSpecificData>')[1].split('</InsurerSpecificData>')
+               //log.info responseXmlObj[0]
+               testRunner.testCase.setPropertyValue(requestName+"_ISD", responseXmlObj[0])
+               log.info "ISD extracted successfully. Saved  in Suite level properties with the name " + requestName+"_ISD"
+}
+    	catch(Exception e)
+    	{
+			err=true
+                 log.error (" Exception in Library -- >  function =  'extractISD'' under 'Library' for  | testStep = " + context.currentStep.getName() +  " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName()  )                
+                 log.error "Exception = "+ e
+                 String str= e.getStackTrace().toString()
+                 def pattern = ( str =~ /groovy.(\d+)./   )
+                 log.error " Error at line number = " + pattern[0][1]
+      }
+
+}
+
+
+
+
+
+/* This function sets the properties inside the variable passed as key . 
+It uses XML and Map(values [xpath] ) ) to get the actual value from XML
+and it stores those Value at TestCase Level property 
+This can also be used for fetching attribute 
+*/
+def setPropertiesValue(def xml,HashMap propValue)
+{
+
+
+    
+    try
+    {
+
+        for (def var in propValue)
+        {
+
+
+                def temp
+                temp=xml.getNodeValue(var.value.toString())
+                if(temp==null)
+                {
+					err=true
+                   log.error  var.value.toString() + " has null value "
+                }
+               log.info temp
+               log.info var.key.toString()
+             
+                testRunner.testCase.setPropertyValue(var.key.toString() , temp)
+
+                
+            }
+         
+        }
+     catch(Exception e)
+    {
+		err=true
+        log.error (" Exception in Library -- >  function =  'setPropertiesValue' under  | testStep = " + context.currentStep.getName() +  " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName()  )
+        log.error "Exception = "+ e
+        String str= e.getStackTrace().toString()
+        def pattern = ( str =~ /groovy.(\d+)./   )
+        log.error " Error at line number = " + pattern[0][1]
+    }
+    
+}
+// end of function 
+
+
+// This function is for comparing 2 values 
+// The function compare the values present at actual  and expected
+// comparemessage contains the message to be printed 
+
+def compareValue(def comparemessage,def actual, def expected)
+{
+	try
+	{
+	     log.info comparemessage
+		if(actual==expected)
+		{
+			
+			 log.info "Values matched. Value= " + actual
+			 return true
+		}
+		else
+		{
+			err=true
+			
+			log.error  "Values did not matched . Acual Value = " + actual + " Expected value = " + expected
+			return false
+		}
+	}
+  catch(Exception e)
+    {
+		err=true
+		
+        log.error (" Exception in Library -- >  function =  'compareValue' under  | testStep = " + context.currentStep.getName() +  " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName()  )
+        log.error "Exception = "+ e
+        String str= e.getStackTrace().toString()
+        def pattern = ( str =~ /groovy.(\d+)./   )
+        log.error " Error at line number = " + pattern[0][1]
+    }
+}
+		
+
+
+// This function will take a message to be printed before comparing values 
+// The function compare the values present at comparisonArray[0] and comparisonArray[1] location in multidimensional array
+// Name of the values to be compared is passed at [2]
+// comparisonArray[]= [ ["301","302,"DriverPRN"] , ["Testing","Tester","Firstname"] ]
+
+def compareValues(def comparemessage, def comparisonArray)
+{
+	try
+	{
+	log.info comparemessage 
+	for(def var in comparisonArray)
+	{
+		if(var[0]==var[1])
+		{
+			 log.info "Values matched for " + var[2]  + "  =  " + var[0]
+		}
+		else
+		{
+			err=true
+			log.error  "Values did not matched  for " + var[2] + " | First Value  || " + var[0] + " !=  " +  var[1] + " || Second value |"
+		}
+	}
+	}
+     catch(Exception e)
+    {
+		err=true
+        log.error (" Exception in Library -- >  function =  'compareValues' under  | testStep = " + context.currentStep.getName() +  " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName()  )
+        log.error "Exception = "+ e
+        String str= e.getStackTrace().toString()
+        def pattern = ( str =~ /groovy.(\d+)./   )
+        log.error " Error at line number = " + pattern[0][1]
+    }
+}
+// end of function 
+
+
+
+// function to compare 2 values extracted based on 2 xpaths from each from a different XMLHolder
+// for eg. You want to compare driver and vehcile PRN from request and working data 
+// cmpValFrom2Req("Comparing Request with wd",requestHolder,wdHolder,xpathList)
+// def xpathList= [ ["//*:DriverPRN","//:WorkingData/*:DriverPRN","DriverPRN" ] , ["//*:AddressPRN","//:WorkingData/*:AddressPRN"] ]
+
+def cmpValFrom2Req(def compareMessage,def xml1Holder,def xml2Holder, def xpathList)
+{
+    try
+	{
+	log.info compareMessage
+	def temp1
+	def temp2
+	   for(def var in xpathList)
+	   {
+	   	temp1=xml1Holder.getNodeValue(var[0])
+	   	temp2=xml2Holder.getNodeValue(var[1])
+
+	   	if(temp1==temp2)
+	   	{
+	   		if(temp1==null)
+	   		{
+				err=true
+	   			log.error "Value is null for " + var[2] + " under  "+  var[0] + " and " + var[1]
+	   		}
+	   		else
+	   		{
+	   		log.info "Values Matched for  " +var[2] + " = "  + temp1
+	   		}
+	   		//log.info "Value are equal as expected " + temp1
+	   	}
+	   	else
+	   	{
+			err=true
+	   		log.error "Below values did not matched for " + var[2]
+	   		log.error " "+var[0] +  " = " + temp1 
+	   		log.error " "+var[1] +  " = " + temp2
+	   	}
+	   }
+	}
+	      catch(Exception e)
+                {
+           log.error (" Exception in Library -- >  function =  'cmpValFrom2Req' under 'Library' for  | testStep = " + context.currentStep.getName() +  " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName()  )                
+                 log.error "Exception = "+ e
+                 String str= e.getStackTrace().toString()
+            def pattern = ( str =~ /groovy.(\d+)./   )
+            log.error " Error at line number = " + pattern[0][1]
+                }
+}
+	
+	
+	
+
+// Function is for checking all key-value pairs are present at the expected Path
+
+def cmpKeyValue(def xml,def xpathKey , def xpathValue, def expKeyValueMap)
+{
+	def keys  = xml.getNodeValues(xpathKey)
+	def values=xml.getNodeValues(xpathValue)
+     def actMap=[:]
+	if(keys.size()!= values.size())
+	{
+		log.error " Size of Key " + keys.size() + " ! =  " + values.size() + " Values "
+	}
+    else
+    {
+       for(int i=0;i < keys.size() ; i ++) 
+       {
+       	actMap.put(keys[i],values[i])
+        }
+        // log.info "Actual        Map = "  + actMap
+         //log.info "Expected  Map = "  + expKeyValueMap
+       
+        if(actMap==expKeyValueMap)
+        {
+        	log.info "All key  value pairs matched with expected list"
+       	log.info actMap
+         }
+         if (expKeyValueMap-actMap)
+         {
+			 err=true
+         	 log.error ( "These key-value pairs are not present which are expected are as follows")
+         	 log.error  expKeyValueMap-actMap
+         }
+         if (actMap-expKeyValueMap)
+         {
+         	log.warn "These extra key-values pairs found which are not in expected list are as follows "
+         	log.warn actMap-expKeyValueMap
+         }
+        
+    	
+    }
+     
+}
+
+	// function to get the attribute values 
+
+
+
+
+// End of Class technical
+}
+
+
+context.setProperty("Library", new technical(log, context, testRunner))
+]]></script></con:config></con:testStep><con:setupScript>def tStep=testRunner.testCase.testSteps["commonScript"]
+def ok=tStep.run(testRunner,context)
+log.info "ok" + ok.status
+
+</con:setupScript><con:properties/><con:reportParameters/><con:breakPoints><con:testStepId>028fa0b7-3a57-4916-99c8-99b553b664df</con:testStepId><con:status>NONE</con:status><con:properties/></con:breakPoints></con:testCase><con:testCase id="684981db-8d09-4d2b-bf8b-964ffe6969cc" failOnError="true" failTestCaseOnErrors="true" keepSession="false" maxResults="0" name="EndsleighBusiness" searchProperties="true"><con:settings/><con:testStep type="groovy" name="EarnixRequest" id="b4619f5c-2685-4000-ab3a-daae91f95007"><con:settings/><con:config><script>class EarnixRequest{
+
+
+	def static log
+    	def static context
+    	def static testRunner
+    	def static err
+
+    	EarnixRequest(def log1,def context1,def testRunner1)
+    	{
+        log=log1
+        context=context1
+        testRunner=testRunner1
+        err=context.error
+    	}
+
+
+	def ValidateEarnixRequest(def hhRequestLabel, def EarnixRequestLabel, def fulfiller)
+	{
+		log.info " *** Inside Validate Earnix Request function ****** "
+
+		try{
+
+			def groovyUtils = new com.eviware.soapui.support.GroovyUtils(context)
+			def workingData = groovyUtils.getXmlHolder("GetWorkingData#Response")
+			def request = groovyUtils.getXmlHolder(hhRequestLabel+"#Response")
+
+			//Use Library functions of testSuite Framework
+			def var = testRunner.testCase.testSuite.project.getTestSuiteByName("Framework").getTestCaseByName("Common").getTestStepByName("Library")
+			var.run(testRunner,context)
+			def obj = context.Library
+			
+			//Gettting values from Earnix Request profile values from the working data 
+			def common=workingData.getNodeValues("//*:WorkingData/*:Entry[@Label='EarnixRequest']//*:getPricingResultsV6/*:profiles/*:ProfileValues/*:values/*:string")
+			
+			def AGE1=common[3]
+			log.info "AGE in the Earnix request profile value is  " +AGE1
+			
+			def CATEGORY_OF_AGENT1=common[2]
+			log.info "CATEGORY_OF_AGENT in the Earnix request profile value is  " +CATEGORY_OF_AGENT1
+			
+			def BLDGCLMFRYRS1=common[6]
+			log.info "BLDGCLMFRYRS in the Earnix request profile value is  " +BLDGCLMFRYRS1
+			
+			
+			def INVITE_BLDG_SCHEME1=common[76]
+			log.info "INVITE_BLDG_SCHEME in the Earnix request profile value is  " +INVITE_BLDG_SCHEME1
+			
+			def CALCBLDGSI1=common[71]
+			log.info "CALCBLDGSI in the Earnix request profile value is  " +CALCBLDGSI1
+			
+			
+			def CALCCONTSI1=common[71]
+			log.info "CALCCONTSI in the Earnix request profile value is  " +CALCCONTSI1
+			
+			def CONTCLMFRYRS1=common[12]
+			log.info "CONTCLMFRYRS in the Earnix request profile value is  " +CONTCLMFRYRS1
+			
+			
+			def INVITE_BLDG_NET_PREMIUM1=common[62]
+			log.info "INVITE_BLDG_NET_PREMIUM in the Earnix request profile value is  " +INVITE_BLDG_NET_PREMIUM1
+			
+			def INVITE_CONT_NET_PREMIUM1=common[65]
+			log.info "INVITE_CONT_NET_PREMIUM in the Earnix request profile value is  " +INVITE_CONT_NET_PREMIUM1
+			
+			
+			def INVITE_INSURER_NET_PREMIUM1=common[74]
+			log.info "INVITE_INSURER_NET_PREMIUM in the Earnix request profile value is  " +INVITE_INSURER_NET_PREMIUM1
+			
+			def REQBLDGSI1=common[8]
+			log.info "REQBLDGSI1 in the Earnix request profile value is  " +REQBLDGSI1
+			
+			def REQCONTSI1=common[13]
+			log.info "REQCONTSI1 in the Earnix request profile value is  " +REQCONTSI1
+			
+			def SPE_SUM_INSURED1=common[24]
+			log.info "SPE_SUM_INSURED in the Earnix request profile value is  " +SPE_SUM_INSURED1
+			
+			def EXPIRING_ADDON_GROSS_PREMIUM1=common[13]
+			log.info "EXPIRING_ADDON_GROSS_PREMIUM in the Earnix request profile value is  " +EXPIRING_ADDON_GROSS_PREMIUM1
+			
+			
+			def DOB = workingData.getNodeValues('//*:WorkingData/*:Entry[@Label="HhQuoteRequest"]//*:Request/*:HouseholdRequest/*:ContractPosition/*:Proposer[1]/*:PersonDetails/*:DateOfBirth')
+			//log.info "date of birth in Request is" +DOB.toString()
+			
+			def DOB1=DOB.toString()
+			String reqyear = DOB1.substring(1, DOB1.indexOf('-'))
+			
+			Date date = new Date()
+			String curretdate= date.format("yyyy-MM-dd")
+			def curretdate1=curretdate.toString()
+			String currentyear = curretdate1.substring(0, curretdate1.indexOf('-'))
+			
+			int reqyear1=reqyear.toInteger()
+			int currentyear1=currentyear.toInteger()
+			log.info "year of birth in request is  " +reqyear1
+			log.info "Current year is   " +currentyear1
+			
+			def Age = currentyear1 - reqyear1
+			log.info" Age in request is "+Age
+			
+			// Getting Earnix profile value from HHquote request,HH Quoteresponse 
+			HashMap  reqres_values=[
+			"AGE_req":					"$Age",
+			"CATEGORY_OF_AGENT_req":		workingData.getNodeValue("//*:WorkingData/*:Entry[@Label='HhQuoteRequest']//*:Request/*:Header/*:Control/*:SourceOfBusiness/*:Abi"),
+			"BLDGCLMFRYRS_req":			workingData.getNodeValue("//*:WorkingData/*:Entry[@Label='HhQuoteRequest']//*:Request/*:HouseholdRequest/*:ContractPosition/*:Premises[1]/*:PremisesCover/*:Buildings/*:NCD/*:ActualYears"),
+			"INVITE_BLDG_SCHEME_req":	workingData.getNodeValue("//*:WorkingData/*:Entry[@Label='SortedHhQuoteResponse']//*:GetQuoteResult/*:QuotationResponse/*:Scheme[1]/@SchemeNumber"),	
+			"CALCCONGSI_req":			workingData.getNodeValue("//*:WorkingData/*:Entry[@Label='SortedHhQuoteResponse']//*:GetQuoteResult/*:QuotationResponse/*:Scheme[1]/*:QuoteDetail/@BuildingsCombinedSumInsured"),
+			"CALCCONTSI_req":			workingData.getNodeValue("//*:WorkingData/*:Entry[@Label='SortedHhQuoteResponse']//*:GetQuoteResult/*:QuotationResponse/*:Scheme[1]/*:QuoteDetail/@ContentsCombinedSumInsured"),	
+			"CONTCLMFRYRS_req":			workingData.getNodeValue("//*:WorkingData/*:Entry[@Label='HhQuoteRequest']//*:Request/*:HouseholdRequest/*:ContractPosition/*:Premises[1]/*:PremisesCover/*:Contents/*:NCD/*:ActualYears"),
+			"INVITE_BLDG_NET_PREMIUM_req":  workingData.getNodeValue("//*:WorkingData/*:Entry[@Label='SortedHhQuoteResponse']//*:GetQuoteResult/*:QuotationResponse/*:Scheme[1]/*:BuildingsCover/*:PremiumInfo/@Premium"),	
+			"INVITE_CONT_NET_PREMIUM_req":  workingData.getNodeValue("//*:WorkingData/*:Entry[@Label='SortedHhQuoteResponse']//*:GetQuoteResult/*:QuotationResponse/*:Scheme[1]/*:ContentsCover/*:PremiumInfo/@Premium"),	
+			"INVITE_INSURER_NET_PREMIUM_req": workingData.getNodeValue("//*:WorkingData/*:Entry[@Label='SortedHhQuoteResponse']//*:GetQuoteResult/*:QuotationResponse/*:Scheme[1]/@TotalPremium"),	
+			"REQBLDGSI_req":				workingData.getNodeValue("//*:WorkingData/*:Entry[@Label='HhQuoteRequest']//*:Request/*:HouseholdRequest/*:ContractPosition/*:Premises[1]/*:PremisesCover/*:Buildings/*:RequestedCoverAmount/*:ActualYears"),
+			"REQCONTSI_req" :				workingData.getNodeValue("//*:WorkingData/*:Entry[@Label='HhQuoteRequest']//*:Request/*:HouseholdRequest/*:ContractPosition/*:Premises[1]/*:PremisesCover/*:Contents/*:SumContentsValue"),
+			"SPE_SUM_INSURED_req" :			context.expand('${GetWorkingData#Response#sum(//*:WorkingData/*:Entry[@Label="HhQuoteRequest"]//*:Request/*:HouseholdRequest/*:ContractPosition/*:Premises[1]/*:PremisesCover/*:Contents//*:WithinHome//*:Specified//*:AmountRequired)}'),
+			"EXPIRING_ADDON_GROSS_PREMIUM_req": context.expand('${GetWorkingData#Response#sum(//*:WorkingData/*:Entry[@Label="SortedHhQuoteResponse"]//*:GetQuoteResult/*:QuotationResponse/*:Scheme[1]/*:AddOns/*:AddOn/*:PremiumInfo/@DisplayPremium)}'),	
+			]
+			
+			
+			//Display all the Attribute Name and It's value from HHQuote Request,HHQuote Response
+			for ( e in reqres_values ) {
+			log.info "ATTRIBUTE NAME  = ${e.key} ,PROFILE VALUE = ${e.value} in the working data "
+			}
+			
+			//Store Earnix request profilE Values, HHQuote Request /HHQuote Response in the list 
+			def list=[
+			[AGE1,reqres_values["AGE_req"],"AGE"],
+			[CATEGORY_OF_AGENT1,reqres_values["CATEGORY_OF_AGENT_req"],"CATEGORY_OF_AGENT"],
+			[BLDGCLMFRYRS1,reqres_values["BLDGCLMFRYRS_req"],"BLDGCLMFRYRS"],
+			[INVITE_BLDG_SCHEME1,reqres_values["INVITE_BLDG_SCHEME_req"],"INVITE_BLDG_SCHEME"],
+			[CALCBLDGSI1,reqres_values["CALCCONGSI_req"],"CALCBLDGSI"],
+			[CALCCONTSI1,reqres_values["CALCCONTSI_req"],"CALCCONTSI"],
+			[CONTCLMFRYRS1,reqres_values["CONTCLMFRYRS_req"],"CONTCLMFRYRS"],
+			[INVITE_BLDG_NET_PREMIUM1,reqres_values["INVITE_BLDG_NET_PREMIUM_req"],"INVITE_BLDG_NET_PREMIUM"],
+			[INVITE_CONT_NET_PREMIUM1,reqres_values["INVITE_CONT_NET_PREMIUM_req"],"INVITE_CONT_NET_PREMIUM"],
+			[INVITE_INSURER_NET_PREMIUM1,reqres_values["INVITE_INSURER_NET_PREMIUM_req"],"INVITE_INSURER_NET_PREMIUM"],
+			[REQBLDGSI1,reqres_values["REQBLDGSI_req"],"REQBLDGSI"],
+			[REQCONTSI1,reqres_values["REQCONTSI_req"],"REQCONTSI"],
+			[SPE_SUM_INSURED1,reqres_values["SPE_SUM_INSURED_req"],"SPE_SUM_INSURED"],
+			[EXPIRING_ADDON_GROSS_PREMIUM1,reqres_values["EXPIRING_ADDON_GROSS_PREMIUM_req"],"EXPIRING_ADDON_GROSS_PREMIUM"],
+			]
+			
+			//Calling function to compare Earnix request values with HHQuote Request /HHQuote Response values.
+			obj.compareValues("COMPARING EARNIX REQUEST VALUES",list)
+			
+		}
+
+		catch (Exception e) 
+	    	{
+	        	err.add(" Exception in Library -- >  function =  'ValidateEarnixRequest' under 'Library' for  | testStep = " + context.currentStep.getName() + " | TestCase =" + testRunner.testCase.getName() + " | TestSuite = " + testRunner.testCase.testSuite.getName())
+	        	err.add "Exception = " + e
+	        	String str = e.getStackTrace().toString()
+	        	def pattern = (str =~ /.groovy.(\d+)./)
+	        	err.add " Error at line number = " + pattern[0][1]
+	    	}
+
+		
+	}
+	
+}
+
+context.setProperty("EarnixRequest",new EarnixRequest(log,context,testRunner))
+
+</script></con:config></con:testStep><con:properties/></con:testCase><con:testCase id="ac5373f2-b17f-4114-8391-243df1954d55" failOnError="true" failTestCaseOnErrors="true" keepSession="false" maxResults="0" name="Soap Service" searchProperties="true"><con:settings/><con:testStep type="request" id="22969ea1-63a7-428a-a580-a6bb34dae61d" name="SQ-Agg"><con:settings/><con:config xsi:type="con:RequestStep" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><con:interface>CurrencyConvertorSoap</con:interface><con:operation>ConversionRate</con:operation><con:request name="SQ-Agg" id="39544ccf-27ae-43cd-a48c-34df771ab3ee"><con:settings><con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;entry key="SOAPAction" value="${#Project#AggSOAPAction}" xmlns="http://eviware.com/soapui/config"/></con:setting></con:settings><con:encoding>UTF-8</con:encoding><con:endpoint>${#Project#Aggendpoint}</con:endpoint><con:request><![CDATA[<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<soap:Header>
+      <Security>
+         <SystemUsername>${#Project#AggUsername}</SystemUsername>
+         <SystemPassword>${#Project#AggPassword}</SystemPassword>
+         <SystemID>1</SystemID>
+      </Security>
+   </soap:Header>
+  <soap:Body>
+    <ha:GetQuote xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ha="http://WebServices.ssp-uk.com/HouseholdAggregator/" xsi:schemaLocation="http://WebServices.ssp-uk.com/HouseholdAggregator/ ../SspHhSingleQuoteAggRequest_v0.2.xsd">
+	<ha:quote CoverStart="2015-06-20" IsMultiProposer="false" CoverType="ContentsAndBuildings" PaymentFrequency="M" PaymentFrequencyDescription="Annually">
+		<ha:Proposer ProposerType="MainProposer" DateOfBirth="1968-10-31" Sex="Male" MaritalStatus="Divorced" IsSmoker="false" FirstTimeBuyer="false" HasConvictions="false" HasCcj="false" HasPolicyRefused="false" DateResidencyStarted="1997-05-20" EmailAddress="john@theophilus.org.uk" Title="Mr" FirstName="John" MiddleName="" LastName="Theophilus" DayTimePhone="01761435559" CallNowPhone="01761435559">
+			<ha:Occupation IsFullTime="true" EmploymentStatus="Unemployed" OccupationCode="U03" BusinessCode="747"/>
+			<ha:CorrespondenceAddress AddressLine1="4 Yale Rd" AddressLine2="Holywell Green" AddressLine3="Halifax" Postcode="HX4 9ZZ"/>
+			<ha:MarketingOptions>
+				<ha:Method>Phone</ha:Method>
+			</ha:MarketingOptions>
+		</ha:Proposer>
+		<ha:Claim Cost="500" IsCurrentAddress="false" Date="2016-08-13" ClaimType="1" CoverType="ContentsAndBuildings"/>
+		<ha:Claim Cost="1000" IsCurrentAddress="true" Date="2017-08-14" ClaimType="1" CoverType="Buildings"/>
+		<ha:Claim Cost="1500" IsCurrentAddress="true" Date="2017-08-15" ClaimType="1" CoverType="Contents"/>
+		<ha:Premises YearBuilt="1880" PremisesType="19" NumberOfBedrooms="2" IsOccupiedDay="true" IsOccupiedNight="true" OccupancyStatus="PermanentHome" OwnerShipType="08" IsSoleOccupancy="true" ListedBuildingType="3" IsUsedForBusiness="false" IsClericalWorkOnly="false" SelfContainedAndLockable="true" MaxDaysUnoccupied="30" HasApprovedLocks="true" HasApprovedAlarm="false" MemberOfNeighbourHoodWatch="false" HasSmokeDetector="true" SecurityDeviceDiscountRequired="false" ConstructionWall="02" ConstructionRoof="15" IsFreeFromSubsidence="true" IsFreeFromFlooding="true" IsFreeFromUnderpinning="true" IsNearRiverBank="false" IsGoodStateOfRepair="true" IsSOMaintained="true" IsTreesVicinity="false" RoofFlatPercentage="0" IsFurnished="false" OccupantsOver18="1" OccupantsUnder18="0" HasExteriorLighting="false" IsSecurityActivated="false" HasExtension="true">
+			<ha:Address AddressLine1="30" AddressLine2="Carlingcott Peasedown St. John" AddressLine3="Bath" AddressLine4="Bath" Postcode="BA2 8AN"/>
+		</ha:Premises>
+		<ha:CoverRequired>
+			<ha:Buildings RebuildingCost="199000" IsAccidentalDamageRequired="true" VoluntaryExcess="0" IsFullValue="true">
+				<ha:PreviousInsurance ExpiryDate="2013-07-20" InsurerCode="0552" PolicyNumber="0" NCDYears="5"/>
+			</ha:Buildings>
+			<ha:Contents ValuablesSumInsured="9400" PersonalEffectsSumInsured="9500" ContentsCoverType="NewForOld" IsAccidentalDamageRequired="true" VoluntaryExcess="0" IsFullReplacementValue="true" ValueMostExpensiveItem="4000" AllRisksRequired="true" TotalSumInsured="60000">
+				<ha:AllRisks ClothingValue="100" FursValue="200">
+					<ha:SpecifiedItems ItemType="P02" Description="Specialised S-Works" Value="4000"/>
+					<ha:SpecifiedItems ItemType="P02" Description="Planet-X Full Carbon Stealth" Value="4000"/>
+					<ha:SpecifiedItems ItemType="P02" Description="Dawes GIRO 400" Value="400"/>
+				</ha:AllRisks>
+				<ha:SpecifiedItems ItemType="P23" Description="Dell XPS 701x" Value="1000"/>
+				<ha:PreviousInsurance ExpiryDate="2013-07-20" InsurerCode="0552" PolicyNumber="0" NCDYears="5"/>
+			</ha:Contents>
+		</ha:CoverRequired>
+		<ha:SOB>Confused</ha:SOB>
+	</ha:quote>
+	<ha:sourceOfBusiness>Confused</ha:sourceOfBusiness>
+	<ha:deviceTypeSource>String</ha:deviceTypeSource>
+	<ha:enrichmentData>String</ha:enrichmentData>
+	<ha:brokerSCID>A04402</ha:brokerSCID>
+	<ha:excludeRawEngineOutput>false</ha:excludeRawEngineOutput>
+</ha:GetQuote>
+</soap:Body>
+</soap:Envelope>]]></con:request><con:assertion type="Valid HTTP Status Codes" id="c92d40e7-56d4-4204-889c-18245356af15" name="Valid HTTP Status Codes"><con:configuration><codes>200</codes></con:configuration></con:assertion><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig action="http://www.webserviceX.NET/ConversionRate" mustUnderstand="NONE" version="200508"/><con:wsrmConfig version="1.2"/></con:request></con:config></con:testStep><con:testStep type="groovy" name="Get-X-Request-Id" id="1436bba0-de24-4016-b776-2d31d2f568cc">
+        <con:settings/>
+        <con:config><script>/**
+ * Parses header response 
+ * Change the 'testStepName' and 'headerPropertyName' values to whatever is appropriate for your test.
+ * If you want to use this value in further Test Steps you'll need to store it as a Test Property, the below link should cover everything you'll need:
+ * 
+ * http://www.soapui.org/Scripting-Properties/tips-a-tricks.html#1-1-get-and-set-properties
+ */
+
+def projectName = testRunner.testCase.testSuite.project.name
+def testSuiteName = testRunner.testCase.testSuite.name
+def testCaseName = testRunner.testCase.name
+def testStepName = "SQ-Agg"
+
+def headerValue = testRunner.testCase.getTestStepByName(testStepName).httpRequest.response.responseHeaders["X-Request-Id"][0]
+
+log.info "GUID for " + projectName + " > " + testSuiteName + " > " + testCaseName + " > " + testStepName + " is >>> " + headerValue
+
+return headerValue</script></con:config>
+      </con:testStep><con:testStep type="restrequest" name="GetWorkingData" id="7cea8858-1408-4920-9393-2ad2ee25fcf9">
+        <con:settings/>
+        <con:config service="http://localhost" resourcePath="/workingdata" methodName="Workingdata" xsi:type="con:RestRequestStep" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <con:restRequest name="GetWorkingData" id="6283aeea-d3c6-4449-ac51-d1ed17035f86" mediaType="application/xml" postQueryString="false">
+            <con:settings>
+              <con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;entry key="Authorization" value="Basic SXRfYWdnOmU1NGJkNDg1LTdlMzctNGRhOS1iZWMxLTAzZTQ2M2JiN2VlOQ==" xmlns="http://eviware.com/soapui/config"/></con:setting>
+            </con:settings>
+            <con:endpoint>${#Project#WorkingData}</con:endpoint>
+            <con:request>${Get-X-Request-Id#result}</con:request>
+            <con:originalUri>https://iqh-dev.ssp-hosting.com/iqh/lv/broker/ssp</con:originalUri>
+            <con:assertion type="GroovyScriptAssertion" id="734df84d-9f51-4427-9228-8b96712e9589" name="Assert node [RequestId]">
+              <con:configuration>
+                <scriptText>import com.eviware.soapui.support.XmlHolder
+
+def holder = new XmlHolder( messageExchange.responseContentAsXml )
+holder.namespaces["ns1"] = "http://www.ssp-uk.com/Mqh/WorkingData"
+def node = holder.getNodeValue( "//ns1:WorkingData[1]/ns1:RequestId[1]" )
+def result = context.expand( '${Get-X-Request-Id#result}' )
+
+assert node != null
+
+assert node == result</scriptText>
+              </con:configuration>
+            </con:assertion>
+            <con:credentials>
+              <con:selectedAuthProfile>Inherit From Parent</con:selectedAuthProfile>
+              <con:authType>No Authorization</con:authType>
+            </con:credentials>
+            <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
+            <con:jmsPropertyConfig/><con:parameters/>
+            <con:environmentSpec>
+              <con:entry environmentId="393bade2-750c-4e84-8780-c01104093962">
+                <con:authProfile>Inherit From Parent</con:authProfile>
+              </con:entry>
+              <con:entry environmentId="e0b9abc3-f904-41ef-9e7a-850ce1ae0a8d">
+                <con:authProfile>Inherit From Parent</con:authProfile>
+              </con:entry>
+              <con:entry environmentId="b90988c7-114e-461c-b9e5-c6a95f569e65">
+                <con:authProfile>No Authorization</con:authProfile>
+              </con:entry>
+              <con:entry environmentId="beb0d11d-5659-44b7-86f5-2baac1c01d30">
+                <con:authProfile>Inherit From Parent</con:authProfile>
+              </con:entry>
+              <con:entry environmentId="1269b23f-d0ff-4d2f-b2a7-0e80988fbe66">
+                <con:authProfile>Inherit From Parent</con:authProfile>
+              </con:entry>
+            </con:environmentSpec>
+          </con:restRequest>
+        </con:config>
+      </con:testStep><con:testStep type="groovy" name="Working Data Validation" id="e4878df7-3e51-4b6e-b8a2-1e7ded1cbb66"><con:settings/><con:config><script>// Passing error variable 
+
+context.error = false
+
+
+// Running the step contains script for EarnixRequest validation
+def ts=testRunner.testCase.testSuite.project.getTestSuiteByName("Framework").getTestCaseByName("EndsleighBusiness").getTestStepByName("EarnixRequest")
+ts.run(testRunner,context)
+def obj=context.EarnixRequest
+//calling function
+//obj.ValidateEarnixRequest("SQ-Agg", "EarnixRequest", "A04402")
+
+
+
+// Running the step contains script for QuoteReference validation
+ts=testRunner.testCase.testSuite.project.getTestSuiteByName("Framework").getTestCaseByName("Business").getTestStepByName("QuoteRef")
+ts.run(testRunner,context)
+obj=context.quoteReference
+//calling function
+obj.ValidateQuoteReference("SQ-Agg", "QuoteReference" , "A04402")
+
+
+
+// Running the step contains script for Enrichment panel validation
+ts=testRunner.testCase.testSuite.project.getTestSuiteByName("Framework").getTestCaseByName("Business").getTestStepByName("EnrichmentPanel")
+ts.run(testRunner,context)
+obj=context.enrichmentPanel
+//calling function
+obj.ValidateEnrichmentPanel("SQ-Agg", "EnrichmentPanel" , "A04402", ['FloodReEnrichment','EisEnrichment'], ['Force','Bypass'])
+
+
+// Running the step contains script for HhQuoteRequest validation
+ts=testRunner.testCase.testSuite.project.getTestSuiteByName("Framework").getTestCaseByName("Business").getTestStepByName("Agg-HhQuoteRequest")
+ts.run(testRunner,context)
+obj=context.standardHhQuoteRequest
+//calling function
+obj.ValidateStandardHhQuoteRequest("SQ-Agg", "HhQuoteRequest" , "A04402")
+
+
+
+
+// Running the step contains script for HhSspQuotesEngineResponse validation
+ts=testRunner.testCase.testSuite.project.getTestSuiteByName("Framework").getTestCaseByName("Business").getTestStepByName("QuoteEngineResponse")
+ts.run(testRunner,context)
+obj=context.sspQuotesEngineResponse
+//calling function
+obj.ValidateSspQuotesEngineResponse("SQ-Agg", "HhSspQuotesEngineResponse" , "A04402")
+
+
+// Fail if any errors and print the logs
+
+assert context.error==false,"Please check the ERROR in 'Log Output' or 'ScriptLog' for failure of  Script = ${context.testCase.getTestStepAt(context.getCurrentStepIndex()).getLabel()}  and testCase = ${testRunner.testCase.name} testSuite = ${testRunner.testCase.testSuite.name} "   </script></con:config></con:testStep><con:properties/></con:testCase><con:properties/><con:reportParameters/></con:testSuite>
